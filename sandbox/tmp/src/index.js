@@ -1,8 +1,0 @@
-/*
-todo:
-  -
- */
-
-export default {
-
-}

@@ -15,6 +15,7 @@ var inquirer = require('inquirer');
 var fs = _interopDefault(require('fs'));
 var Promise = _interopDefault(require('bluebird'));
 var handlerbars = _interopDefault(require('handlebars'));
+var pick = _interopDefault(require('lodash/pick'));
 var md5 = _interopDefault(require('md5'));
 
 async function cloneRepoAndClean (src, dst) {
@@ -33,7 +34,6 @@ function getConfigFile (dir) {
  *
  * @property {Function} transform - Called with the `data` that's gonna be used to parse all of the `.hbs` files.
  * @property {Object} prompts - [inquirer.prompt](https://github.com/SBoudrias/Inquirer.js/) options
- * @property {Object} config - Additional configuration options
  * @property {Array|Boolean} [savePreset=true] - To save last default options introduced by the user. `true` for all,
  * `false` for none or and `String[]` of the values to save.
  */
@@ -45,19 +45,15 @@ const ParserPluginConfig = {
 /**
  *
  * @param {String} dir - Directory from where to locate the file
- * @param {Boolean} remove - Optionally removes repo's config file
- * @return {Promise<any>}
+ * @return {Promise<{ParserPlugin}>}
  */
-async function getConfig (dir, remove = false) {
+async function getConfig (dir) {
   const pleasureCreateConfigFile = getConfigFile(dir);
   if (await fsExtra.pathExists(pleasureCreateConfigFile)) {
     const config = require(pleasureCreateConfigFile);
-    config.config = Object.assign(ParserPluginConfig, config.config);
-    if (remove) {
-      await fsExtra.remove(pleasureCreateConfigFile);
-    }
-    return config
+    return Object.assign({}, ParserPluginConfig, config)
   }
+  return ParserPluginConfig
 }
 
 /**
@@ -113,7 +109,7 @@ async function render (dir, defaultValues = {}) {
   const files = await pleasureUtils.deepScanDir(dir, { only: [/\.hbs$/] });
 
   if (config.savePreset) {
-    prompts = prompts.map((q) => {
+    prompts = prompts(dir).map((q) => {
       if (!defaultValues.hasOwnProperty(q.name)) {
         return q
       }
@@ -146,14 +142,22 @@ async function render (dir, defaultValues = {}) {
 
 const presetDir = path.resolve(__dirname, '.presets');
 
-async function loadPreset (srcRepo) {
-  const presetFile = path.join(presetDir, md5(srcRepo) + '.json');
-  return await fsExtra.pathExists(presetFile) ? require(presetFile) : {}
+async function loadPreset (srcRepo, hash) {
+  const { savePreset } = await getConfig(srcRepo);
+  if (!savePreset) {
+    return {}
+  }
+  const presetFile = path.join(presetDir, `${ hash }.json`);
+  let preset = {};
+
+  if (await fsExtra.pathExists(presetFile)) {
+    preset = require(presetFile);
+  }
+  return Array.isArray(savePreset) ? pick(preset, savePreset) : preset
 }
 
-async function savePreset (srcRepo, data) {
-  const presetFile = path.join(presetDir, md5(srcRepo) + '.json');
-  console.log(`loading`, presetFile);
+async function savePreset (id, data) {
+  const presetFile = path.join(presetDir, `${ id }.json`);
   return fsExtra.outputFile(presetFile, JSON.stringify(data))
 }
 
@@ -166,17 +170,15 @@ async function savePreset (srcRepo, data) {
  */
 async function create (srcRepo, destination) {
   await cloneRepoAndClean(srcRepo, destination);
+
   const repo = await getConfig(destination);
+  const enteredData = await render(destination, await loadPreset(destination, md5(srcRepo)));
 
-  console.log({ repo });
-
-  const enteredData = await render(destination, await loadPreset(srcRepo));
-
-  if (repo.config.savePreset) {
-    await savePreset(srcRepo, enteredData);
+  if (repo.savePreset) {
+    await savePreset(md5(srcRepo), Array.isArray(repo.savePreset) ? pick(enteredData, repo.savePreset) : enteredData);
   }
 
-  await removeConfig(srcRepo);
+  await removeConfig(destination);
 }
 
 var index = {

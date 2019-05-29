@@ -51,7 +51,7 @@ export async function render (dir, defaultValues = {}) {
   const files = await deepScanDir(dir, { only: [/\.hbs$/] })
 
   if (config.savePreset) {
-    prompts = prompts.map((q) => {
+    prompts = prompts(dir).map((q) => {
       if (!defaultValues.hasOwnProperty(q.name)) {
         return q
       }

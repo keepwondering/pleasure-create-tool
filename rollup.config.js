@@ -4,7 +4,6 @@ import json from 'rollup-plugin-json'
 import alias from 'rollup-plugin-alias'
 // import minify from 'rollup-plugin-babel-minify'
 import { name, version, author, license } from './package.json'
-import resolve from 'rollup-plugin-node-resolve'
 
 const fromSrc = (...paths) => {
   return path.join(__dirname, 'src', ...paths)

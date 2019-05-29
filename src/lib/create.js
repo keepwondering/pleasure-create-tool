@@ -3,6 +3,8 @@ import { cloneRepoAndClean } from './clone-repo-and-clean.js'
 import { getConfig, removeConfig } from './get-config.js'
 import { loadPreset } from './load-preset.js'
 import { savePreset } from './save-preset.js'
+import pick from 'lodash/pick'
+import md5 from 'md5'
 
 /**
  * Clones given `repository` into the given `destination`. Parses all found handlebars templates (`.hbs`) in the repo
@@ -13,15 +15,13 @@ import { savePreset } from './save-preset.js'
  */
 export async function create (srcRepo, destination) {
   await cloneRepoAndClean(srcRepo, destination)
+
   const repo = await getConfig(destination)
+  const enteredData = await render(destination, await loadPreset(destination, md5(srcRepo)))
 
-  console.log({ repo })
-
-  const enteredData = await render(destination, await loadPreset(srcRepo))
-
-  if (repo.config.savePreset) {
-    await savePreset(srcRepo, enteredData)
+  if (repo.savePreset) {
+    await savePreset(md5(srcRepo), Array.isArray(repo.savePreset) ? pick(enteredData, repo.savePreset) : enteredData)
   }
 
-  await removeConfig(srcRepo)
+  await removeConfig(destination)
 }

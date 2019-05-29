@@ -10,7 +10,6 @@ function getConfigFile (dir) {
  *
  * @property {Function} transform - Called with the `data` that's gonna be used to parse all of the `.hbs` files.
  * @property {Object} prompts - [inquirer.prompt](https://github.com/SBoudrias/Inquirer.js/) options
- * @property {Object} config - Additional configuration options
  * @property {Array|Boolean} [savePreset=true] - To save last default options introduced by the user. `true` for all,
  * `false` for none or and `String[]` of the values to save.
  */
@@ -22,19 +21,15 @@ const ParserPluginConfig = {
 /**
  *
  * @param {String} dir - Directory from where to locate the file
- * @param {Boolean} remove - Optionally removes repo's config file
- * @return {Promise<any>}
+ * @return {Promise<{ParserPlugin}>}
  */
-export async function getConfig (dir, remove = false) {
+export async function getConfig (dir) {
   const pleasureCreateConfigFile = getConfigFile(dir)
   if (await pathExists(pleasureCreateConfigFile)) {
     const config = require(pleasureCreateConfigFile)
-    config.config = Object.assign(ParserPluginConfig, config.config)
-    if (remove) {
-      await removeFile(pleasureCreateConfigFile)
-    }
-    return config
+    return Object.assign({}, ParserPluginConfig, config)
   }
+  return ParserPluginConfig
 }
 
 /**
